@@ -593,8 +593,10 @@ exports.init = init;
 
   return exports;
 })());
-const SALT = "66d652f4dc65a692ff413e884a11e69d";
+const SALT = "d687f125998f275279e6f532424420ea";
 const ERR = 'كلمة السر مش صح… جربي تاني يا مونتي';
+const PNAMES = ['payload-1.b64','payload-2.b64','payload-3.b64','payload-4.b64','payload-5.b64'];
+const TOTAL = 25570604;
 function status(t){ const el = document.getElementById('dl'); if (el) el.textContent = t; }
 function b64ToHex(b64){
   const bin = atob(b64); const parts = [];
@@ -604,6 +606,21 @@ function b64ToHex(b64){
     parts.push(s);
   }
   return parts.join('');
+}
+async function fetchAll(){
+  const chunks = []; let got = 0;
+  for (let n = 0; n < PNAMES.length; n++){
+    const resp = await fetch(PNAMES[n]);
+    const reader = resp.body.getReader();
+    while (true){
+      const r = await reader.read(); if (r.done) break;
+      chunks.push(r.value); got += r.value.length;
+      status('بيحمّل المفاجأة… ' + Math.min(99, Math.round(got / TOTAL * 100)) + '٪');
+    }
+  }
+  const all = new Uint8Array(got); let off = 0;
+  for (const c of chunks){ all.set(c, off); off += c.length; }
+  return all;
 }
 window.addEventListener('DOMContentLoaded', function(){
   document.getElementById('staticrypt_loading').classList.add('hidden');
@@ -622,24 +639,9 @@ window.addEventListener('DOMContentLoaded', function(){
     try {
       const hashed = await CE.hashPassword(pw.value, SALT);
       status('بيحمّل المفاجأة…');
-      const PNAMES = ['payload-1.b64','payload-2.b64','payload-3.b64','payload-4.b64','payload-5.b64'];
-      const total = 25568024;
-      let got = 0; const texts = [];
-      for (let pi = 0; pi < PNAMES.length; pi++){
-        const resp = await fetch(PNAMES[pi]);
-        const reader = resp.body.getReader();
-        const chunks = []; let plen = 0;
-        while (true){
-          const r = await reader.read(); if (r.done) break;
-          chunks.push(r.value); plen += r.value.length; got += r.value.length;
-          status('بيحمّل المفاجأة… ' + Math.min(99, Math.round(got / total * 100)) + '٪');
-        }
-        const all = new Uint8Array(plen); let off = 0;
-        for (const c of chunks){ all.set(c, off); off += c.length; }
-        texts.push(new TextDecoder().decode(all));
-      }
+      const all = await fetchAll();
       status('بيجهّز المفاجأة…');
-      const b64 = texts.join('');
+      const b64 = new TextDecoder().decode(all);
       const hex = b64ToHex(b64);
       const dec = await CODEC.init(CE).decode(hex, hashed, SALT);
       if (dec.success){
